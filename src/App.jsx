@@ -1,206 +1,309 @@
-import React, { useState } from "react"
-import {
-  Search,
-  MessageCircle,
-  Share2,
-  Users,
-  Activity,
-  Shield,
-  Target,
-  AlertTriangle,
-  Smile,
-  Bell,
-} from "lucide-react"
+import React, { useState, useEffect } from "react";
+import { Search, TrendingUp, Twitter, ExternalLink, Plus, X } from "lucide-react";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts";
 
-const sampleTokens = [
-  {
-    id: "SOL",
-    name: "Solana",
-    mentions: 125000,
-    sentiment: 72,
-    totalReplies: 4500,
-    totalRetweets: 9800,
-    uniqueAuthors: 8200,
-    loyaltyIndex: 68,
-    organicGrowth: 12,
-    botPercentage: 4,
-    emotionData: [
-      { emotion: "Joy", value: 55, color: "#60a5fa" },
-      { emotion: "Anger", value: 8, color: "#fb7185" },
-      { emotion: "Sadness", value: 7, color: "#94a3b8" },
-      { emotion: "Surprise", value: 20, color: "#34d399" },
-      { emotion: "Fear", value: 10, color: "#fbbf24" },
-    ],
-    competitors: [
-      { name: "ETH", mentions: 210000, sentiment: 68, growth: -2.1 },
-      { name: "BTC", mentions: 340000, sentiment: 62, growth: 1.8 },
-    ],
-    alerts: [
-      { id: 1, severity: "high", title: "Spike in mentions", time: "2h ago", message: "Mentions increased 320% in last hour" },
-      { id: 2, severity: "medium", title: "Negative sentiment rising", time: "5h ago", message: "Sentiment dropped by 15% in 24h" },
-    ],
-  },
-  {
-    id: "RUST",
-    name: "RustToken",
-    mentions: 24000,
-    sentiment: 56,
-    totalReplies: 480,
-    totalRetweets: 300,
-    uniqueAuthors: 210,
-    loyaltyIndex: 54,
-    organicGrowth: 6,
-    botPercentage: 10,
-    emotionData: [
-      { emotion: "Joy", value: 35, color: "#60a5fa" },
-      { emotion: "Anger", value: 15, color: "#fb7185" },
-      { emotion: "Sadness", value: 8, color: "#94a3b8" },
-      { emotion: "Surprise", value: 30, color: "#34d399" },
-      { emotion: "Fear", value: 12, color: "#fbbf24" },
-    ],
-    competitors: [],
-    alerts: [],
-  },
-]
+function SolanaTokenTracker() {
+  const [tokens, setTokens] = useState([]);
+  const [newToken, setNewToken] = useState({ name: "", address: "" });
+  const [selectedToken, setSelectedToken] = useState(null);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
 
-export default function App() {
-  const [tokens] = useState(sampleTokens)
-  const [selectedId, setSelectedId] = useState(tokens[0].id)
-  const [activeTab, setActiveTab] = useState("overview")
+  useEffect(() => {
+    loadTokens();
+  }, []);
 
-  const selectedToken = tokens.find((t) => t.id === selectedId) || tokens[0]
+  const loadTokens = async () => {
+    try {
+      if (window.storage && window.storage.get) {
+        const stored = await window.storage.get("solana-tokens");
+        if (stored && stored.value) {
+          setTokens(JSON.parse(stored.value));
+          return;
+        }
+      }
+      const ls = localStorage.getItem("solana-tokens");
+      if (ls) setTokens(JSON.parse(ls));
+    } catch (error) {
+      console.log("No stored tokens found, starting fresh");
+    }
+  };
+
+  const saveTokens = async (updatedTokens) => {
+    try {
+      if (window.storage && window.storage.set) {
+        await window.storage.set("solana-tokens", JSON.stringify(updatedTokens));
+      } else {
+        localStorage.setItem("solana-tokens", JSON.stringify(updatedTokens));
+      }
+      setTokens(updatedTokens);
+    } catch (error) {
+      console.error("Failed to save tokens:", error);
+    }
+  };
+
+  const generateMockMindshareData = () => {
+    const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    return days.map((day) => ({
+      day,
+      mentions: Math.floor(Math.random() * 1000) + 100,
+      sentiment: Math.floor(Math.random() * 40) + 60,
+    }));
+  };
+
+  const addToken = () => {
+    if (!newToken.name || !newToken.address) return;
+
+    const token = {
+      id: Date.now(),
+      name: newToken.name,
+      address: newToken.address,
+      addedAt: new Date().toISOString(),
+      mindshareData: generateMockMindshareData(),
+      totalMentions: Math.floor(Math.random() * 5000) + 500,
+      weeklyGrowth: (Math.random() * 40 - 10).toFixed(1),
+      sentiment: (Math.random() * 30 + 60).toFixed(1),
+    };
+
+    const updated = [...tokens, token];
+    saveTokens(updated);
+    setNewToken({ name: "", address: "" });
+    setShowAddForm(false);
+  };
+
+  const removeToken = (id) => {
+    const updated = tokens.filter((t) => t.id !== id);
+    saveTokens(updated);
+    if (selectedToken?.id === id) {
+      setSelectedToken(null);
+    }
+  };
+
+  const refreshData = (tokenId) => {
+    const updated = tokens.map((t) => {
+      if (t.id === tokenId) {
+        return {
+          ...t,
+          mindshareData: generateMockMindshareData(),
+          totalMentions: Math.floor(Math.random() * 5000) + 500,
+          weeklyGrowth: (Math.random() * 40 - 10).toFixed(1),
+          sentiment: (Math.random() * 30 + 60).toFixed(1),
+        };
+      }
+      return t;
+    });
+    saveTokens(updated);
+    if (selectedToken?.id === tokenId) {
+      setSelectedToken(updated.find((t) => t.id === tokenId));
+    }
+  };
+
+  const filteredTokens = tokens.filter(
+    (t) =>
+      t.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      t.address.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
-    <div className="app">
-      <header className="header">
-        <h1>Solana Mindshare Tracker</h1>
-        <div className="search">
-          <Search size={18} /> <input placeholder="Search tokens..." />
+    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-indigo-900 to-blue-900 text-white p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold mb-2 flex items-center gap-3">
+            <TrendingUp className="text-green-400" /> Solana Token Mindshare Tracker
+          </h1>
+          <p className="text-gray-300">Monitor token mentions and sentiment across X (Twitter)</p>
         </div>
-      </header>
 
-      <div className="content">
-        <aside className="sidebar">
-          <h3>Tokens</h3>
-          <div className="token-list">
-            {tokens.map((t) => (
-              <button
-                key={t.id}
-                className={"token-card" + (t.id === selectedId ? " active" : "")}
-                onClick={() => setSelectedId(t.id)}
-              >
-                <div className="token-name">{t.name}</div>
-                <div className="token-mentions">{t.mentions.toLocaleString()}</div>
-              </button>
-            ))}
+        {/* Search and Add */}
+        <div className="mb-6 flex gap-4">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+            <input
+              type="text"
+              placeholder="Search tokens by name or address..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
           </div>
-        </aside>
+          <button
+            onClick={() => setShowAddForm(!showAddForm)}
+            className="px-6 py-3 bg-green-500 hover:bg-green-600 rounded-lg font-semibold flex items-center gap-2 transition-colors"
+          >
+            <Plus size={20} /> Add Token
+          </button>
+        </div>
 
-        <main className="main">
-          <section className="summary">
-            <h2>{selectedToken.name}</h2>
-            <div className="summary-row">
-              <div className="stat card">
-                <MessageCircle size={18} />
-                <div className="stat-label">Replies</div>
-                <div className="stat-value">{selectedToken.totalReplies.toLocaleString()}</div>
-              </div>
-              <div className="stat card">
-                <Share2 size={18} />
-                <div className="stat-label">Retweets</div>
-                <div className="stat-value">{selectedToken.totalRetweets.toLocaleString()}</div>
-              </div>
-              <div className="stat card">
-                <Users size={18} />
-                <div className="stat-label">Authors</div>
-                <div className="stat-value">{selectedToken.uniqueAuthors.toLocaleString()}</div>
-              </div>
-              <div className="stat card">
-                <Activity size={18} />
-                <div className="stat-label">Sentiment</div>
-                <div className="stat-value">{selectedToken.sentiment}%</div>
-              </div>
+        {/* Add Token Form */}
+        {showAddForm && (
+          <div className="mb-6 p-6 bg-white/10 border border-white/20 rounded-lg">
+            <h3 className="text-xl font-semibold mb-4">Add New Token</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <input
+                type="text"
+                placeholder="Token Name (e.g., BONK)"
+                value={newToken.name}
+                onChange={(e) => setNewToken({ ...newToken, name: e.target.value })}
+                className="px-4 py-2 bg-white/10 border border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
+              <input
+                type="text"
+                placeholder="Contract Address"
+                value={newToken.address}
+                onChange={(e) => setNewToken({ ...newToken, address: e.target.value })}
+                className="px-4 py-2 bg-white/10 border border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
             </div>
-          </section>
-
-          <section className="cards">
-            <div className="card">
-              <Shield size={20} />
-              <div className="card-label">Loyalty Index</div>
-              <div className="card-value">{selectedToken.loyaltyIndex}%</div>
+            <div className="mt-4 flex gap-3">
+              <button
+                onClick={addToken}
+                className="px-6 py-2 bg-purple-500 hover:bg-purple-600 rounded-lg font-semibold transition-colors"
+              >
+                Add Token
+              </button>
+              <button
+                onClick={() => setShowAddForm(false)}
+                className="px-6 py-2 bg-gray-500 hover:bg-gray-600 rounded-lg font-semibold transition-colors"
+              >
+                Cancel
+              </button>
             </div>
+          </div>
+        )}
 
-            <div className="card">
-              <Target size={20} />
-              <div className="card-label">Organic Growth</div>
-              <div className="card-value">{selectedToken.organicGrowth}%</div>
-            </div>
-
-            <div className="card">
-              <AlertTriangle size={20} />
-              <div className="card-label">Bot Activity</div>
-              <div className="card-value">{selectedToken.botPercentage}%</div>
-            </div>
-
-            <div className="emotion card">
-              <Smile size={18} />
-              <div className="card-label">Emotion Analysis</div>
-              <div className="emotion-grid">
-                {selectedToken.emotionData.map((emotion, i) => (
-                  <div key={i} className="emotion-item">
-                    <div className="bar-outer">
-                      <div
-                        className="bar-inner"
-                        style={{ height: `${emotion.value}%`, backgroundColor: emotion.color }}
-                      />
-                    </div>
-                    <div className="emotion-name" style={{ color: emotion.color }}>
-                      {emotion.emotion}
-                    </div>
-                    <div className="emotion-value">{emotion.value}%</div>
-                  </div>
-                ))}
+        {/* Tokens Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+          {filteredTokens.map((token) => (
+            <div
+              key={token.id}
+              className="p-5 bg-white/10 border border-white/20 rounded-lg hover:bg-white/15 transition-all cursor-pointer"
+              onClick={() => setSelectedToken(token)}
+            >
+              <div className="flex justify-between items-start mb-3">
+                <div>
+                  <h3 className="text-xl font-bold">{token.name}</h3>
+                  <p className="text-xs text-gray-400 font-mono truncate max-w-[200px]">{token.address}</p>
+                </div>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removeToken(token.id);
+                  }}
+                  className="text-red-400 hover:text-red-300"
+                >
+                  <X size={18} />
+                </button>
               </div>
+
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-300 flex items-center gap-1">
+                    <Twitter size={16} /> Mentions
+                  </span>
+                  <span className="font-bold text-lg">{token.totalMentions.toLocaleString()}</span>
+                </div>
+
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-300">7d Growth</span>
+                  <span className={`font-bold ${parseFloat(token.weeklyGrowth) >= 0 ? "text-green-400" : "text-red-400"}`}>{token.weeklyGrowth}%</span>
+                </div>
+
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-300">Sentiment</span>
+                  <span className="font-bold text-blue-400">{token.sentiment}%</span>
+                </div>
+              </div>
+
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  refreshData(token.id);
+                }}
+                className="mt-4 w-full py-2 bg-purple-500/50 hover:bg-purple-500/70 rounded-lg text-sm font-semibold transition-colors"
+              >
+                Refresh Data
+              </button>
             </div>
-          </section>
+          ))}
+        </div>
 
-          <nav className="tabs">
-            <button onClick={() => setActiveTab("overview")} className={activeTab === "overview" ? "active" : ""}>Overview</button>
-            <button onClick={() => setActiveTab("competition")} className={activeTab === "competition" ? "active" : ""}>Competition</button>
-            <button onClick={() => setActiveTab("alerts")} className={activeTab === "alerts" ? "active" : ""}>Alerts</button>
-          </nav>
+        {filteredTokens.length === 0 && (
+          <div className="text-center py-12 text-gray-400">
+            <p className="text-xl mb-2">No tokens found</p>
+            <p>Add a token to start tracking mindshare</p>
+          </div>
+        )}
 
-          <section className="tab-content">
-            {activeTab === "competition" && (
+        {/* Detailed View */}
+        {selectedToken && (
+          <div className="p-6 bg-white/10 border border-white/20 rounded-lg">
+            <div className="flex justify-between items-start mb-6">
               <div>
-                {selectedToken.competitors.length === 0 && <div className="card">No competitors data</div>}
-                {selectedToken.competitors.map((comp, i) => (
-                  <div key={i} className="comp card">
-                    <div className="comp-name">{comp.name}</div>
-                    <div className="comp-growth">{comp.growth >= 0 ? `↗ ${comp.growth}%` : `↘ ${comp.growth}%`}</div>
-                    <div className="comp-stats">Mentions: {comp.mentions.toLocaleString()} · Sentiment: {comp.sentiment}%</div>
-                  </div>
-                ))}
+                <h2 className="text-3xl font-bold mb-2">{selectedToken.name}</h2>
+                <p className="text-gray-400 font-mono text-sm">{selectedToken.address}</p>
               </div>
-            )}
+              <button onClick={() => setSelectedToken(null)} className="text-gray-400 hover:text-white">
+                <X size={24} />
+              </button>
+            </div>
 
-            {activeTab === "alerts" && (
-              <div>
-                {selectedToken.alerts.length === 0 && <div className="card">No alerts</div>}
-                {selectedToken.alerts.map((alert) => (
-                  <div key={alert.id} className={"alert card " + (alert.severity === "high" ? "high" : "medium")}>{alert.title}</div>
-                ))}
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div className="p-4 bg-white/5 rounded-lg">
+                <p className="text-gray-400 mb-1">Total Mentions</p>
+                <p className="text-3xl font-bold">{selectedToken.totalMentions.toLocaleString()}</p>
               </div>
-            )}
+              <div className="p-4 bg-white/5 rounded-lg">
+                <p className="text-gray-400 mb-1">Weekly Growth</p>
+                <p className={`text-3xl font-bold ${parseFloat(selectedToken.weeklyGrowth) >= 0 ? "text-green-400" : "text-red-400"}`}>{selectedToken.weeklyGrowth}%</p>
+              </div>
+              <div className="p-4 bg-white/5 rounded-lg">
+                <p className="text-gray-400 mb-1">Sentiment Score</p>
+                <p className="text-3xl font-bold text-blue-400">{selectedToken.sentiment}%</p>
+              </div>
+            </div>
 
-            {activeTab === "overview" && (
-              <div>
-                <div className="card">Overview content for {selectedToken.name}</div>
+            {/* Charts */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="bg-white/5 p-4 rounded-lg">
+                <h3 className="text-lg font-semibold mb-4">Weekly Mentions</h3>
+                <ResponsiveContainer width="100%" height={250}>
+                  <LineChart data={selectedToken.mindshareData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#ffffff20" />
+                    <XAxis dataKey="day" stroke="#fff" />
+                    <YAxis stroke="#fff" />
+                    <Tooltip contentStyle={{ backgroundColor: "#1f2937", border: "1px solid #374151" }} />
+                    <Line type="monotone" dataKey="mentions" stroke="#8b5cf6" strokeWidth={2} />
+                  </LineChart>
+                </ResponsiveContainer>
               </div>
-            )}
-          </section>
-        </main>
+
+              <div className="bg-white/5 p-4 rounded-lg">
+                <h3 className="text-lg font-semibold mb-4">Sentiment Trend</h3>
+                <ResponsiveContainer width="100%" height={250}>
+                  <BarChart data={selectedToken.mindshareData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#ffffff20" />
+                    <XAxis dataKey="day" stroke="#fff" />
+                    <YAxis stroke="#fff" />
+                    <Tooltip contentStyle={{ backgroundColor: "#1f2937", border: "1px solid #374151" }} />
+                    <Bar dataKey="sentiment" fill="#3b82f6" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            <div className="mt-6 p-4 bg-blue-500/20 border border-blue-500/30 rounded-lg">
+              <p className="text-sm text-blue-200">
+                <strong>Note:</strong> This demo uses simulated data. In a production environment, this would connect to X API and real-time Solana blockchain data to track actual mentions and token activity.
+              </p>
+            </div>
+          </div>
+        )}
       </div>
-    </div>
-  )
+    </div>;
+}
+
+export default function App() {
+  return <SolanaTokenTracker />;
 }
